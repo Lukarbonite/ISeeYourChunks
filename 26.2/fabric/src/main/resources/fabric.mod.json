@@ -1,0 +1,45 @@
+{
+	"schemaVersion": 1,
+	"id": "i_see_your_chunks",
+	"version": "${version}",
+	"name": "I See Your Chunks",
+	"description": "Streams the terrain around distant players so they render standing on real ground, far past render distance.",
+	"authors": [
+		"lukarbonite"
+	],
+	"contact": {
+		"homepage": "https://github.com/Lukarbonite/ISeeYourChunks",
+		"sources": "https://github.com/Lukarbonite/ISeeYourChunks"
+	},
+	"license": "AGPL-3.0-only",
+	"icon": "assets/i_see_your_chunks/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.lukarbonite.iseeyourchunks.ISeeYourChunksFabric"
+		],
+		"client": [
+			"com.lukarbonite.iseeyourchunks.client.ISeeYourChunksFabricClient"
+		],
+		"modmenu": [
+			"com.lukarbonite.iseeyourchunks.compat.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"iseeyourchunks.mixins.json",
+		{
+			"config": "iseeyourchunks.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.12",
+		"fabric-api": "*",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"voxy": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}

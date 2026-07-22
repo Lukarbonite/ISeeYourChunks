@@ -1,0 +1,14 @@
+{
+	"screen.i_see_your_chunks.title": "I See Your Chunks",
+	"screen.i_see_your_chunks.subtitle": "Ecran client. Copie le meme config sur le serveur pour le multijoueur.",
+	"option.i_see_your_chunks.enabled": "Activer le mod",
+	"option.i_see_your_chunks.remote_players": "Afficher les joueurs lointains",
+	"option.i_see_your_chunks.remote_entities": "Afficher les entites lointaines",
+	"option.i_see_your_chunks.visibility_distance": "Distance de visibilite: %s",
+	"option.i_see_your_chunks.visibility_distance.infinite": "Infinie",
+	"option.i_see_your_chunks.visibility_distance.value": "%s chunks (%s blocs)",
+	"option.i_see_your_chunks.chunk_render": "Terrain autour du joueur: %s",
+	"option.i_see_your_chunks.chunk_render.none": "Aucun (joueurs seulement, sans terrain)",
+	"option.i_see_your_chunks.chunk_render.value": "%s chunks (~%s×%s)",
+	"modmenu.descriptionTranslation.i_see_your_chunks": "Diffuse le terrain autour des joueurs lointains pour qu'ils apparaissent sur du vrai sol, bien au-dela de la distance d'affichage."
+}

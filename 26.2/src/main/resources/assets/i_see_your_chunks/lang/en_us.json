@@ -1,0 +1,14 @@
+{
+	"screen.i_see_your_chunks.title": "I See Your Chunks",
+	"screen.i_see_your_chunks.subtitle": "Client screen. Copy the same config to the server for multiplayer.",
+	"option.i_see_your_chunks.enabled": "Enable mod",
+	"option.i_see_your_chunks.remote_players": "Render distant players",
+	"option.i_see_your_chunks.remote_entities": "Render distant entities",
+	"option.i_see_your_chunks.visibility_distance": "Visibility distance: %s",
+	"option.i_see_your_chunks.visibility_distance.infinite": "Infinite",
+	"option.i_see_your_chunks.visibility_distance.value": "%s chunks (%s blocks)",
+	"option.i_see_your_chunks.chunk_render": "Terrain around player: %s",
+	"option.i_see_your_chunks.chunk_render.none": "None (players only, no terrain)",
+	"option.i_see_your_chunks.chunk_render.value": "%s chunks (~%s×%s)",
+	"modmenu.descriptionTranslation.i_see_your_chunks": "Streams the terrain around distant players so they render standing on real ground, far past render distance."
+}

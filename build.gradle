@@ -1,0 +1,14 @@
+// Root build — minimal shared conventions.
+//
+// Version builds (e.g. :mc26_2-fabric) manage their own plugins, toolchain, and Java release target
+// — DO NOT set a global toolchain here, so future MC versions on older Java can coexist.
+
+subprojects {
+    group = project.maven_group
+
+    repositories {
+        mavenCentral()
+        maven { name = 'Mojang'; url = 'https://libraries.minecraft.net/' }
+        maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
+    }
+}

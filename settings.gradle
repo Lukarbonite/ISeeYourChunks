@@ -1,0 +1,14 @@
+pluginManagement {
+    repositories {
+        maven { name = 'Fabric';       url = 'https://maven.fabricmc.net/' }
+        maven { name = 'Architectury'; url = 'https://maven.architectury.dev/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = 'iseeyourchunks'
+
+// ─── MC 26.2 — Fabric, unobfuscated (no mappings needed), Java 25 ────────────
+include ':mc26_2-fabric'
+project(':mc26_2-fabric').projectDir = file('26.2/fabric')
