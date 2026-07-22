@@ -3,6 +3,7 @@ package com.lukarbonite.iseeyourchunks.client;
 import com.lukarbonite.iseeyourchunks.ISeeYourChunks;
 import com.lukarbonite.iseeyourchunks.config.ISeeYourChunksConfig;
 import com.lukarbonite.iseeyourchunks.config.ISeeYourChunksConfigManager;
+import com.lukarbonite.iseeyourchunks.client.compat.VoxyIngestBridge;
 import com.lukarbonite.iseeyourchunks.network.ClientHelloPayload;
 import com.lukarbonite.iseeyourchunks.network.ISeeYourChunksNetworking;
 import com.lukarbonite.iseeyourchunks.network.ServerAckPayload;
@@ -36,6 +37,7 @@ public final class ISeeYourChunksFabricClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ISeeYourChunksNetworking.registerPayloads();
+		warnIfVoxyMissing();
 
 		// The hello cannot simply be sent on JOIN: canSend() only becomes true once Fabric's channel
 		// negotiation with the server completes, which may land after JOIN fires. Retry each tick until
@@ -61,6 +63,22 @@ public final class ISeeYourChunksFabricClient implements ClientModInitializer {
 				"Server ack: streaming={}, render distance={} chunks (terrain cap {} chunks).",
 				serverStreamingEnabled, serverRenderDistanceChunks, serverChunkRenderCap());
 		});
+	}
+
+	/**
+	 * Voxy is what draws the streamed terrain, so it is required <em>on clients</em> - but not on
+	 * dedicated servers, where it neither exists (it is a client-only mod) nor is needed. That rules out a
+	 * hard {@code depends}, which would block the mod from loading server-side. Instead the requirement is
+	 * enforced here: without Voxy the client still works, but degrades to bare distant players and mobs
+	 * floating with no ground, so it is worth a loud, unmissable warning rather than silent breakage.
+	 */
+	private static void warnIfVoxyMissing() {
+		if (VoxyIngestBridge.isAvailable()) {
+			return;
+		}
+		ISeeYourChunks.LOGGER.warn(
+			"Voxy is not installed. Distant players and mobs will still appear, but with NO terrain "
+				+ "under them - they will float. Install Voxy on this client to render the streamed ground.");
 	}
 
 	/**

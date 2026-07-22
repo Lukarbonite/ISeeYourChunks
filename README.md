@@ -2,12 +2,12 @@
 
 ![Fabric](https://img.shields.io/badge/modloaders-fabric-blue?style=for-the-badge)
 ![Minecraft](https://img.shields.io/badge/minecraft-26.2-green?style=for-the-badge)
-![Requires Voxy](https://img.shields.io/badge/requires-voxy-red?style=for-the-badge)
+![Clients need Voxy](https://img.shields.io/badge/clients_need-voxy-red?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-AGPL%203.0-lightgrey?style=for-the-badge)
 
 **I See Your Chunks** renders distant players standing on **real terrain**, far past your render distance. Instead of a player model floating in empty space at the edge of the world, the server streams the chunks that player is standing in, and your client draws them as actual geometry — with real occlusion, live block updates, and correct depth against your LOD terrain.
 
-> ⚠️ **Requires [Voxy](https://modrinth.com/mod/voxy).** Voxy is what renders the streamed terrain; the mod will not load without it. See [How It Works](#️-how-it-works).
+> ⚠️ **Clients need [Voxy](https://modrinth.com/mod/voxy).** Voxy is what renders the streamed terrain. Without it a client still shows distant players and mobs, but floating with no ground under them. Dedicated servers do **not** need Voxy (it's a client-only mod). See [How It Works](#️-how-it-works).
 
 ---
 
@@ -39,7 +39,7 @@ The mod is split cleanly across the network boundary:
 3. **Client (acceptance):** The client's chunk-cache storage radius is widened so those out-of-range chunks are accepted instead of dropped.
 4. **Client (Voxy hand-off):** Each streamed far chunk is handed straight to Voxy's ingest as it arrives, and Voxy draws it through its own far renderer, correctly depth-sorted against its LODs.
 
-> **Why Voxy is required:** streamed chunks lie beyond Sodium's render distance, so Sodium never compiles them into meshes. Voxy is what actually puts that terrain on screen — without it, the terrain half of this mod does nothing and distant players float in the void. It is a hard dependency for that reason; Fabric will refuse to launch without it.
+> **Why Voxy (on clients):** streamed chunks lie beyond Sodium's render distance, so Sodium never compiles them into meshes. Voxy is what actually puts that terrain on screen — without it, the terrain half of this mod does nothing and distant players float in the void. It is required on clients for that reason, but only there: a dedicated server does the streaming and never renders anything, so it neither needs nor can load Voxy (a client-only mod). The client logs a loud warning if Voxy is missing.
 
 > **Why the neighbour halo:** Voxy's LOD mesher reads each chunk's neighbours to build it, so a chunk with un-streamed neighbours can't mesh and stays invisible — which would leave only the inner part of any patch rendering. Streaming one extra ring around the requested patch gives every visible chunk its neighbours; the halo itself is never drawn and never reveals mobs.
 
@@ -49,11 +49,13 @@ The mod is split cleanly across the network boundary:
 
 Install the JAR on **both the server and the clients.** The server does the tracking and streaming; the client removes the rendering limits.
 
-### Required
+### Required (both sides)
 - **Fabric Loader** 0.16.12+
 - **Fabric API**
 - **Java 25**
-- **Voxy** — draws the streamed far terrain
+
+### Required on clients
+- **Voxy** — draws the streamed far terrain (client-only mod; dedicated servers don't need or want it)
 
 ### Optional
 - **Mod Menu** — in-game access to the config screen
@@ -85,7 +87,7 @@ Changing the config re-sends the handshake immediately, so streaming adjusts wit
 
 | Mod | Status | Notes |
 |:----|:------:|:------|
-| **Voxy** | **Required** | Renders the streamed far terrain — the mod will not load without it |
+| **Voxy** | **Client-required** | Renders the streamed far terrain; required on clients, not needed on dedicated servers |
 | **Sodium** | Full | No coupling to Sodium internals — nothing to break on update |
 | **Iris / shaders** | Full | Streamed chunks are ordinary terrain, so shaders treat them normally |
 | **melius-vanish** | Full | Vanished players are never revealed (reflective bridge, fails open) |
