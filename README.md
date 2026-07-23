@@ -101,13 +101,13 @@ The mod injects at these points:
 - `ChunkMap.tick()` — periodically re-evaluates managed entities against every player, since a mob's visibility flips as the streamed region around a distant player slides over or off it
 - `ChunkHolder.broadcast()` — forwards per-chunk block/light/block-entity updates to viewers streaming that chunk far away
 - `ClientChunkCache.<init>` **and** `updateViewRadius()` — widens the client storage radius so streamed chunks aren't rejected as out-of-range (both are required: the radius normally arrives in the login packet, before `updateViewRadius` would ever fire)
-- `ClientChunkCache.replaceWithPacketData()` — hands each arriving far chunk to Voxy's `VoxelIngestService`, because Voxy otherwise only ingests chunks when they *unload*, and streamed chunks never unload
+- `ClientChunkCache.replaceWithPacketData()` — hands each arriving far chunk to Voxy's `VoxelIngestService`, because Voxy otherwise only ingests chunks when they *unload*, and streamed chunks never unload. Chunks past the client's storage radius (a viewed player thousands of blocks away) are rejected by vanilla before decoding; those are re-decoded from the intact packet buffer into a throwaway chunk and fed to Voxy directly, so far terrain renders at any distance without being held in the cache
 - `LevelRenderer.isSectionCompiledAndVisible()` — lets an entity render in a section Sodium never compiled, because Voxy is drawing that ground instead
 - `EntityRenderDispatcher.shouldRender()` / `Entity.shouldRenderAtSqrDistance()` — distance-limit overrides that still respect the frustum
 
 The client↔server handshake (`ClientHelloPayload` in, `ServerAckPayload` back) carries preferences and the server's actual limits; nothing here relies on chunk generation, so it stays compatible with generation-side mods.
 
-> **Terrain range is memory-bound.** Streamed chunks pass through the vanilla client chunk cache, whose storage radius is capped (~48 chunks / 768 blocks from the viewer) to bound memory. A viewed player farther than that still renders as a player, but their surrounding terrain cannot — real chunks can't be held arbitrarily far from you the way a distant player marker can.
+> **Terrain range.** Chunks within the client's storage radius (~48 chunks) pass through the vanilla cache normally. Beyond that, they're decoded straight into Voxy's LOD and never cached, so terrain around an arbitrarily distant player still renders — bounded by Voxy's own compact LOD store, not by held chunks. The one caveat is lighting: a bypassed chunk isn't in the vanilla light engine, so its LOD may be lit more crudely than a nearby one.
 
 ---
 

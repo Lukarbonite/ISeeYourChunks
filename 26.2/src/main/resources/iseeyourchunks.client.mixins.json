@@ -3,8 +3,10 @@
 	"package": "com.lukarbonite.iseeyourchunks.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"CameraMixin",
 		"ClientChunkCacheMixin",
 		"EntityMixin",
+		"FarEntityRenderMixin",
 		"EntityRenderManagerMixin",
 		"EntityRendererAccessor",
 		"LevelRendererMixin"

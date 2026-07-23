@@ -22,6 +22,16 @@ public final class ClientEntityVisibility {
 	/** Block positions of entities that passed {@link #isRenderable}, rebuilt at most once per tick. */
 	private static final LongSet RENDERABLE_POSITIONS = new LongOpenHashSet();
 
+	/** Slack past the farthest managed entity, so its far edge is not clipped the instant it appears. */
+	private static final double FAR_PLANE_MARGIN_BLOCKS = 64.0D;
+
+	/**
+	 * Ceiling on the extended far plane. This is the effective maximum distance a managed entity can be drawn
+	 * at; it renders on real streamed terrain to any distance the server keeps tracking it, bounded only by
+	 * this. Raising it costs some depth-buffer range, so it is generous but finite rather than unbounded.
+	 */
+	private static final double FAR_PLANE_CEILING_BLOCKS = 16_384.0D;
+
 	private static ClientLevel indexedLevel;
 	private static long indexedTick = Long.MIN_VALUE;
 
@@ -88,6 +98,74 @@ public final class ClientEntityVisibility {
 
 		indexedLevel = level;
 		indexedTick = tick;
+	}
+
+	/**
+	 * Far-clip distance, in blocks, needed so no managed entity is sliced by the camera's far plane, or
+	 * {@code 0} when none are on screen. Vanilla builds the level projection with a far plane at roughly the
+	 * render distance; a viewed player past it gets clipped, with the sky colour eating whichever limbs cross
+	 * the plane first. Voxy draws its terrain through its own extended projection, so terrain persists while
+	 * the vanilla entity pass keeps the short far plane - hence terrain-yes, player-clipped.
+	 *
+	 * <p>The result is bounded to exactly the farthest visible managed entity plus a margin, so the far plane
+	 * is only pushed out while there is something out there to show. When nothing qualifies this returns
+	 * {@code 0} and the caller keeps vanilla's far plane untouched, sparing the depth buffer any precision
+	 * loss in ordinary play. A hard ceiling caps how far it can stretch, since depth precision degrades with
+	 * the far/near ratio.
+	 */
+	public static float requiredFarPlaneBlocks() {
+		double maxDistanceSq = farthestManagedEntityDistanceSq();
+		if (maxDistanceSq <= 0.0D) {
+			return 0.0F;
+		}
+
+		double needed = Math.sqrt(maxDistanceSq) + FAR_PLANE_MARGIN_BLOCKS;
+		return (float) Math.min(needed, FAR_PLANE_CEILING_BLOCKS);
+	}
+
+	/**
+	 * Managed, renderable entities at least {@code minDistanceSq} (blocks²) from the camera - the ones
+	 * vanilla's entity collection culls because their chunk has left the client cache. The far-entity render
+	 * pass draws exactly these, so a distant player keeps rendering past the storage radius. Near entities
+	 * are excluded so vanilla keeps handling them and we do not double-submit.
+	 */
+	public static java.util.List<Entity> collectFarRenderables(double minDistanceSq) {
+		java.util.List<Entity> out = new java.util.ArrayList<>();
+		ClientLevel level = Minecraft.getInstance().level;
+		if (level == null) {
+			return out;
+		}
+		Vec3 camera = cameraPosition();
+		if (camera == null) {
+			return out;
+		}
+		for (Entity entity : level.entitiesForRendering()) {
+			if (!entity.isRemoved() && isRenderable(entity) && entity.distanceToSqr(camera) >= minDistanceSq) {
+				out.add(entity);
+			}
+		}
+		return out;
+	}
+
+	/** Squared distance from the camera to the farthest renderable managed entity, or {@code 0} if none. */
+	private static double farthestManagedEntityDistanceSq() {
+		ClientLevel level = Minecraft.getInstance().level;
+		if (level == null) {
+			return 0.0D;
+		}
+		Vec3 camera = cameraPosition();
+		if (camera == null) {
+			return 0.0D;
+		}
+
+		double maxDistanceSq = 0.0D;
+		for (Entity entity : level.entitiesForRendering()) {
+			if (entity.isRemoved() || !isRenderable(entity)) {
+				continue;
+			}
+			maxDistanceSq = Math.max(maxDistanceSq, entity.distanceToSqr(camera));
+		}
+		return maxDistanceSq;
 	}
 
 	private static boolean isInRange(Entity entity) {

@@ -5,12 +5,16 @@ import com.lukarbonite.iseeyourchunks.client.ISeeYourChunksFabricClient;
 import com.lukarbonite.iseeyourchunks.client.compat.VoxyIngestBridge;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientChunkCache;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.chunk.LevelChunk;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -33,9 +37,25 @@ import java.util.function.Consumer;
  * render distance, so Sodium never draws it and it never unloads - which means Voxy, whose ingest fires
  * on unload, would never see it. On arrival we hand such chunks straight to Voxy. Near chunks are left
  * alone: Sodium draws them and Voxy ingests them the normal way when they eventually unload.
+ *
+ * <p><b>Beyond the storage radius.</b> The cache can only hold chunks within a bounded radius of the
+ * viewer, so a player thousands of blocks away has their streamed chunks rejected outright ("Ignoring
+ * chunk since it's not in the view range") before the packet is even decoded. Voxy does not actually
+ * need those chunks cached - it keeps its own compact LOD once a chunk is ingested. So for a rejected
+ * chunk we decode a throwaway {@link LevelChunk} straight from the still-unread packet buffer and hand
+ * only that to Voxy, which lets far terrain render at any distance without holding the chunks in memory.
  */
 @Mixin(ClientChunkCache.class)
 abstract class ClientChunkCacheMixin {
+	/** Counts far chunks decoded via the out-of-range bypass, so the path is visible in logs. */
+	@org.spongepowered.asm.mixin.Unique
+	private static final java.util.concurrent.atomic.AtomicLong iSeeYourChunks$bypassCount =
+		new java.util.concurrent.atomic.AtomicLong();
+
+	@Shadow
+	@Final
+	ClientLevel level;
+
 	@ModifyVariable(method = "<init>(Lnet/minecraft/client/multiplayer/ClientLevel;I)V", at = @At("HEAD"), argsOnly = true)
 	private static int iSeeYourChunks$expandInitialStorageRadius(int radius) {
 		return iSeeYourChunks$expand(radius, "constructor");
@@ -68,8 +88,36 @@ abstract class ClientChunkCacheMixin {
 		}
 
 		LevelChunk chunk = cir.getReturnValue();
-		if (chunk != null && iSeeYourChunks$isFarChunk(chunkX, chunkZ)) {
-			VoxyIngestBridge.ingest(chunk);
+		if (chunk != null) {
+			// Accepted into the cache. Ingest only the far ones; near chunks are Sodium's to draw.
+			if (iSeeYourChunks$isFarChunk(chunkX, chunkZ)) {
+				VoxyIngestBridge.ingest(chunk);
+			}
+			return;
+		}
+
+		// Rejected as out-of-range: vanilla logged and returned without touching the buffer, so the chunk
+		// data is intact. Decode it into a throwaway chunk purely to feed Voxy's LOD - never cached, so
+		// this works at any distance with no unbounded memory. A no-op block-entity sink keeps the decode
+		// from registering block entities into a level that has no home chunk for them.
+		if (buffer.readableBytes() <= 0) {
+			return;
+		}
+		try {
+			LevelChunk far = new LevelChunk(this.level, new ChunkPos(chunkX, chunkZ));
+			far.replaceWithPacketData(buffer, heightmaps, tag -> { });
+			VoxyIngestBridge.ingest(far);
+
+			long count = iSeeYourChunks$bypassCount.incrementAndGet();
+			if (count == 1 || count % 64 == 0) {
+				ISeeYourChunks.LOGGER.info(
+					"Bypassed storage for {} out-of-range far chunk(s) (last {},{}), decoded straight to Voxy.",
+					count, chunkX, chunkZ);
+			}
+		} catch (RuntimeException exception) {
+			// A malformed or partially-read buffer must never take down chunk handling - but surface it,
+			// since a systematic decode failure here would mean no far terrain at all.
+			ISeeYourChunks.LOGGER.warn("Failed to decode out-of-range far chunk {},{} for Voxy.", chunkX, chunkZ, exception);
 		}
 	}
 
