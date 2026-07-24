@@ -3,6 +3,7 @@ package com.lukarbonite.iseeyourchunks.client.mixin;
 import com.lukarbonite.iseeyourchunks.ISeeYourChunks;
 import com.lukarbonite.iseeyourchunks.client.ISeeYourChunksFabricClient;
 import com.lukarbonite.iseeyourchunks.client.compat.VoxyIngestBridge;
+import com.lukarbonite.iseeyourchunks.client.compat.VoxyFarNodeInjector;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientChunkCache;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -92,6 +93,7 @@ abstract class ClientChunkCacheMixin {
 			// Accepted into the cache. Ingest only the far ones; near chunks are Sodium's to draw.
 			if (iSeeYourChunks$isFarChunk(chunkX, chunkZ)) {
 				VoxyIngestBridge.ingest(chunk);
+				iSeeYourChunks$offerFarNode(chunkX, chunkZ);
 			}
 			return;
 		}
@@ -107,6 +109,7 @@ abstract class ClientChunkCacheMixin {
 			LevelChunk far = new LevelChunk(this.level, new ChunkPos(chunkX, chunkZ));
 			far.replaceWithPacketData(buffer, heightmaps, tag -> { });
 			VoxyIngestBridge.ingest(far);
+			iSeeYourChunks$offerFarNode(chunkX, chunkZ);
 
 			long count = iSeeYourChunks$bypassCount.incrementAndGet();
 			if (count == 1 || count % 64 == 0) {
@@ -119,6 +122,28 @@ abstract class ClientChunkCacheMixin {
 			// since a systematic decode failure here would mean no far terrain at all.
 			ISeeYourChunks.LOGGER.warn("Failed to decode out-of-range far chunk {},{} for Voxy.", chunkX, chunkZ, exception);
 		}
+	}
+
+	/**
+	 * Offers a just-ingested far chunk to Voxy as an extra render root, so terrain streamed past Voxy's own
+	 * render sphere still draws. The injector no-ops when Voxy is absent, and ignores columns inside Voxy's
+	 * ring (which it already draws), so this is cheap to call for every far chunk.
+	 */
+	@org.spongepowered.asm.mixin.Unique
+	private void iSeeYourChunks$offerFarNode(int chunkX, int chunkZ) {
+		if (!VoxyFarNodeInjector.isAvailable()) {
+			return;
+		}
+		Minecraft client = Minecraft.getInstance();
+		if (client.player == null) {
+			return;
+		}
+		double dx = (chunkX * 16 + 8) - client.player.getX();
+		double dz = (chunkZ * 16 + 8) - client.player.getZ();
+		double distanceBlocks = Math.sqrt(dx * dx + dz * dz);
+		int minBlockY = this.level.getMinY();
+		int maxBlockY = minBlockY + this.level.getHeight() - 1;
+		VoxyFarNodeInjector.noteFarChunk(chunkX, chunkZ, minBlockY, maxBlockY, distanceBlocks);
 	}
 
 	/**

@@ -5,6 +5,7 @@
 	"client": [
 		"CameraMixin",
 		"ClientChunkCacheMixin",
+		"ClientPacketListenerMixin",
 		"EntityMixin",
 		"FarEntityRenderMixin",
 		"EntityRenderManagerMixin",

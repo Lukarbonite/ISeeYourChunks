@@ -4,6 +4,7 @@ import com.lukarbonite.iseeyourchunks.ISeeYourChunks;
 import com.lukarbonite.iseeyourchunks.config.ISeeYourChunksConfig;
 import com.lukarbonite.iseeyourchunks.config.ISeeYourChunksConfigManager;
 import com.lukarbonite.iseeyourchunks.client.compat.VoxyIngestBridge;
+import com.lukarbonite.iseeyourchunks.client.compat.VoxyFarNodeInjector;
 import com.lukarbonite.iseeyourchunks.network.ClientHelloPayload;
 import com.lukarbonite.iseeyourchunks.network.ISeeYourChunksNetworking;
 import com.lukarbonite.iseeyourchunks.network.ServerAckPayload;
@@ -47,11 +48,13 @@ public final class ISeeYourChunksFabricClient implements ClientModInitializer {
 			if (helloPending && client.player != null) {
 				sendHello();
 			}
+			VoxyFarNodeInjector.tick();
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			helloPending = false;
 			serverRenderDistanceChunks = UNKNOWN_RENDER_DISTANCE;
 			serverStreamingEnabled = true;
+			VoxyFarNodeInjector.reset();
 		});
 
 		ClientPlayNetworking.registerGlobalReceiver(ServerAckPayload.TYPE, (payload, context) -> {

@@ -18,22 +18,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 
 /**
- * Forwards per-chunk broadcast packets (block updates, block-entity data, light) to viewers streaming
- * a far chunk. Vanilla only sends these to players tracking the chunk through the normal view distance;
- * our streamed viewers are not among them, so their far terrain would otherwise go stale until re-sent.
+ * Marks a streamed far chunk dirty whenever vanilla broadcasts a per-chunk change for it (block update,
+ * block-entity data, light). Vanilla only broadcasts to players tracking the chunk through normal view
+ * distance; our streamed viewers are not among them, so their far terrain would otherwise freeze at first
+ * sight. Rather than relay the delta packet - which a client cannot apply to an out-of-range chunk it never
+ * cached - the streamer re-sends the whole chunk on its next update interval (see
+ * {@link FarChunkStreamer#markStreamedChunkChanged}), which the client re-ingests into Voxy.
  *
- * <p>The {@code levelHeightAccessor} ChunkHolder is constructed with is the owning {@link ServerLevel},
- * which lets us relay to only the viewers in that dimension.
+ * <p>The {@code levelHeightAccessor} ChunkHolder is constructed with is the owning {@link ServerLevel}.
  */
 @Mixin(ChunkHolder.class)
 abstract class ChunkHolderMixin {
 	@Shadow @Final private LevelHeightAccessor levelHeightAccessor;
 
 	@Inject(method = "broadcast(Ljava/util/List;Lnet/minecraft/network/protocol/Packet;)V", at = @At("HEAD"))
-	private void iSeeYourChunks$forwardToFarViewers(List<ServerPlayer> players, Packet<?> packet, CallbackInfo ci) {
+	private void iSeeYourChunks$markFarChunkChanged(List<ServerPlayer> players, Packet<?> packet, CallbackInfo ci) {
 		if (this.levelHeightAccessor instanceof ServerLevel level) {
 			ChunkPos pos = ((GenerationChunkHolder) (Object) this).getPos();
-			FarChunkStreamer.forwardChunkPacket(level, pos.pack(), packet);
+			FarChunkStreamer.markStreamedChunkChanged(level, pos.pack());
 		}
 	}
 }

@@ -13,7 +13,6 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.server.MinecraftServer;
@@ -61,6 +60,15 @@ public final class FarChunkStreamer {
 	private static final Map<UUID, LongSet> VISIBLE_CHUNKS = new java.util.HashMap<>();
 	/** Reverse index: packed chunk position -> viewers currently streaming it (for block-update relay). */
 	private static final Long2ObjectMap<Set<ServerPlayer>> CHUNK_VIEWERS = new Long2ObjectOpenHashMap<>();
+	/**
+	 * Streamed far chunks that changed since the last re-send. A client cannot apply incremental block-update
+	 * packets to a chunk it never cached (out-of-range far chunks are decoded straight to Voxy, not stored),
+	 * and even cached ones do not re-ingest into Voxy on a block change. So instead of relaying deltas we mark
+	 * the chunk dirty here and re-send the whole chunk on the update interval; the client re-decodes and
+	 * re-ingests it, which is what makes distant terrain edits actually update. Scoped to {@link #CHUNK_VIEWERS}
+	 * so only our own streamed chunks (those around a viewed player) are ever tracked - never vanilla's.
+	 */
+	private static final LongSet DIRTY_CHUNKS = new LongOpenHashSet();
 
 	private static int tickCounter;
 
@@ -105,18 +113,49 @@ public final class FarChunkStreamer {
 	}
 
 	/**
-	 * Relays a per-chunk broadcast packet (block updates, block-entity data, light) to viewers that are
-	 * streaming this chunk but do not track it through vanilla. Called from {@code ChunkHolderMixin}.
+	 * Notes that a streamed far chunk changed, so it is re-sent (whole) on the next update interval. Called
+	 * from {@code ChunkHolderMixin} for every per-chunk broadcast (block change, block entity, light). Only
+	 * chunks we are actively streaming to someone ({@link #CHUNK_VIEWERS}) are tracked; every other chunk -
+	 * all of vanilla's normally-tracked terrain - is ignored, so this never touches chunks that are not ours.
 	 */
-	public static void forwardChunkPacket(ServerLevel level, long chunkPos, Packet<?> packet) {
-		Set<ServerPlayer> viewers = CHUNK_VIEWERS.get(chunkPos);
-		if (viewers == null || viewers.isEmpty()) {
+	public static void markStreamedChunkChanged(ServerLevel level, long chunkPos) {
+		if (CHUNK_VIEWERS.containsKey(chunkPos)) {
+			DIRTY_CHUNKS.add(chunkPos);
+		}
+	}
+
+	/**
+	 * Re-sends every dirty streamed chunk (whole) to the viewers still streaming it, then clears the set.
+	 * Runs on the update interval, so a chunk edited many times between intervals costs a single re-send.
+	 * Chunks a viewer now tracks through vanilla (they moved close) are skipped - vanilla owns those updates.
+	 */
+	private static void resendDirtyChunks() {
+		if (DIRTY_CHUNKS.isEmpty()) {
 			return;
 		}
-		for (ServerPlayer viewer : viewers) {
-			if (viewer.level() == level) {
-				viewer.connection.send(packet);
+		int resent = 0;
+		LongIterator iterator = DIRTY_CHUNKS.iterator();
+		while (iterator.hasNext()) {
+			long packed = iterator.nextLong();
+			Set<ServerPlayer> viewers = CHUNK_VIEWERS.get(packed);
+			if (viewers == null || viewers.isEmpty()) {
+				continue;
 			}
+			int chunkX = ChunkPos.getX(packed);
+			int chunkZ = ChunkPos.getZ(packed);
+			for (ServerPlayer viewer : viewers) {
+				ServerChunkCache chunkSource = viewer.level().getChunkSource();
+				if (chunkSource.chunkMap.isChunkTracked(viewer, chunkX, chunkZ)) {
+					continue;
+				}
+				if (sendChunk(viewer, chunkSource, chunkX, chunkZ)) {
+					resent++;
+				}
+			}
+		}
+		DIRTY_CHUNKS.clear();
+		if (resent > 0) {
+			ISeeYourChunks.LOGGER.debug("Re-sent {} changed far chunk(s) to streaming viewers.", resent);
 		}
 	}
 
@@ -143,6 +182,10 @@ public final class FarChunkStreamer {
 			}
 			updateViewer(viewer, settings, viewDistanceChunks, maxDistanceCap, sendSpectators);
 		}
+
+		// After (re)building each viewer's streamed set, re-send any of those chunks that changed since the
+		// last interval, so distant terrain edits appear instead of freezing at first sight.
+		resendDirtyChunks();
 	}
 
 	private static void updateViewer(ServerPlayer viewer, Settings settings, int viewDistanceChunks,
