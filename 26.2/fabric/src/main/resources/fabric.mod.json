@@ -30,6 +30,10 @@
 		{
 			"config": "iseeyourchunks.client.mixins.json",
 			"environment": "client"
+		},
+		{
+			"config": "iseeyourchunks.voxy.mixins.json",
+			"environment": "client"
 		}
 	],
 	"depends": {

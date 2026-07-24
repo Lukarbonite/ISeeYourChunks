@@ -17,7 +17,7 @@
 - **🌍 Real Terrain, Not Ghosts:** Distant players are rendered on the actual chunks they occupy, not floating in the void
 - **🚫 Zero Generation Cost:** Only chunks **already loaded** on the server are streamed — nothing new is generated, loaded, or ticked
 - **🔄 Live Block Updates:** When a block changes in a streamed chunk the server re-sends that whole chunk and the client re-ingests it, so distant terrain updates in place — torches, lava, and builds all appear live
-- **♾️ Far Past the Render Sphere:** Terrain renders well beyond Voxy's own render sphere by injecting only the streamed columns as extra render roots — no cost for the empty disc in between. In practice terrain reaches Voxy's projection far plane (~48,000 blocks), which is far enough that the streamed player is the limiting factor, not the ground
+- **♾️ Far Past the Render Sphere:** Terrain renders well beyond Voxy's own render sphere by injecting only the streamed columns as extra render roots — no cost for the empty disc in between. Voxy's projection far plane is pushed out from its hardcoded 48,000, and distant players are held to the same reach, so a viewed player and the ground under them always clip together. That reach tracks the visibility-distance slider live — up to 1,024,000 blocks at the slider's maximum — so raising the slider extends both terrain and players immediately, with no reconnect. The 1,024,000 ceiling is a deliberate "more than enough" cap, not a technical limit (reverse-Z depth means it could go further at no real cost)
 - **💡 Real Lighting:** Far terrain is lit from the chunk packet's actual block + sky light, so torches and lava glow and shadows fall correctly, instead of a flat approximation
 - **🎯 Correct Occlusion:** Because the terrain is genuinely present client-side, a player behind a hill is actually hidden — no partial-occlusion guesswork
 - **📡 Opt-In Handshake:** Clients announce themselves; the server sends nothing to anyone who didn't ask
@@ -74,7 +74,7 @@ Settings live in `config/i-see-your-chunks.json` and can be edited in-game throu
 | `enabled` | Master toggle — disables the mod entirely if false | `true` |
 | `renderRemotePlayers` | Render distant players (and stream their chunks) | `true` |
 | `renderRemoteEntities` | Render distant mobs that sit in streamed terrain | `true` |
-| `visibilityDistanceBlocks` | How far out distant players are revealed | Infinite |
+| `visibilityDistanceBlocks` | How far out distant players are revealed (rendering reaches at most 1,024,000 blocks) | Maximum |
 | `chunkRenderCount` | Chunks of terrain around each viewed player (0 = none, nearest-first) | `9` (3×3) |
 | `streamFarChunks` | Server-side: stream terrain around revealed players | `true` |
 | `sendSpectators` | Server-side: reveal players in spectator mode | `false` |
@@ -108,10 +108,11 @@ The mod injects at these points:
 - `ClientPacketListener.handleLevelChunkWithLight()` — captures the chunk packet's real block + sky light so the ingest above can feed it to Voxy (vanilla otherwise discards that light for out-of-range chunks)
 - `LevelRenderer.isSectionCompiledAndVisible()` — lets an entity render in a section Sodium never compiled, because Voxy is drawing that ground instead
 - `EntityRenderDispatcher.shouldRender()` / `Entity.shouldRenderAtSqrDistance()` — distance-limit overrides that still respect the frustum
+- `VoxyRenderSystem.computeProjectionMat()` — raises Voxy's hardcoded 48,000-block projection far plane to the shared far-render bound so injected far columns aren't clipped there (applied only when Voxy is present, gated by a mixin config plugin). The bound is computed live from the visibility-distance slider (48,000 floor, 1,024,000 ceiling) and this method runs every frame, so the reach follows the slider immediately; the managed-entity far plane uses the same bound, keeping terrain and the players on it in lockstep
 
 The client↔server handshake (`ClientHelloPayload` in, `ServerAckPayload` back) carries preferences and the server's actual limits; nothing here relies on chunk generation, so it stays compatible with generation-side mods.
 
-> **Terrain range.** Chunks within the client's storage radius (~48 chunks) pass through the vanilla cache normally. Beyond that, they're decoded straight into Voxy's LOD and never cached, so terrain around an arbitrarily distant player still renders — bounded by Voxy's own compact LOD store, not by held chunks. Columns past Voxy's render sphere are injected as extra render roots, and Voxy's distance cull is lifted for them, so they draw out to Voxy's projection far plane (~48,000 blocks). Lighting uses the real block + sky light from each chunk packet; if a chunk ever arrives without light data, it falls back to a heightmap-based sky approximation.
+> **Terrain range.** Chunks within the client's storage radius (~48 chunks) pass through the vanilla cache normally. Beyond that, they're decoded straight into Voxy's LOD and never cached, so terrain around an arbitrarily distant player still renders — bounded by Voxy's own compact LOD store, not by held chunks. Columns past Voxy's render sphere are injected as extra render roots, and Voxy's distance cull is lifted for them, so they draw out to Voxy's projection far plane — which this mod raises from Voxy's hardcoded 48,000. That far plane is computed live from the visibility-distance slider (clamped to a 48,000 floor and a 1,024,000 ceiling at the slider's maximum) and shared with the managed-entity far plane, so terrain and the players on it reach the same distance and both follow the slider without a reconnect. The 1,024,000 ceiling is chosen simply as more than enough for any practical use, not because anything technical stops it there — pushing it out is nearly free on precision because the depth buffer is reverse-Z. Lighting uses the real block + sky light from each chunk packet; if a chunk ever arrives without light data, it falls back to a heightmap-based sky approximation.
 
 ---
 

@@ -1,6 +1,7 @@
 package com.lukarbonite.iseeyourchunks.client;
 
 import com.lukarbonite.iseeyourchunks.EntityVisibilityRules;
+import com.lukarbonite.iseeyourchunks.config.ISeeYourChunksConfigManager;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.client.Minecraft;
@@ -26,11 +27,29 @@ public final class ClientEntityVisibility {
 	private static final double FAR_PLANE_MARGIN_BLOCKS = 64.0D;
 
 	/**
-	 * Ceiling on the extended far plane. This is the effective maximum distance a managed entity can be drawn
-	 * at; it renders on real streamed terrain to any distance the server keeps tracking it, bounded only by
-	 * this. Raising it costs some depth-buffer range, so it is generous but finite rather than unbounded.
+	 * Hard cap on the shared far-render bound, in blocks — the value used when the visibility-distance slider is
+	 * set to Infinite. MC 26.2 (and Voxy) use a reverse-Z depth buffer, where precision is nearly independent of
+	 * the far plane, so this can be large at essentially no cost to depth precision; it is finite only for sanity.
 	 */
-	private static final double FAR_PLANE_CEILING_BLOCKS = 16_384.0D;
+	public static final float MAX_FAR_RENDER_PLANE_BLOCKS = 1_024_000.0F;
+
+	/**
+	 * Floor on the shared far-render bound: never below Voxy's own default projection far plane (48,000), so
+	 * ordinary Voxy terrain within its render sphere is never clipped even when the visibility slider is small.
+	 */
+	private static final float MIN_FAR_RENDER_PLANE_BLOCKS = 48_000.0F;
+
+	/**
+	 * Shared far-render bound, in blocks, for both streamed terrain and managed entities, computed live from the
+	 * visibility-distance slider. Voxy's projection far plane is raised to this (see {@code VoxyRenderSystemMixin})
+	 * and the managed-entity far plane is capped here, so a viewed player and the ground beneath them always clip
+	 * together — and the reach grows or shrinks with the slider, up to {@link #MAX_FAR_RENDER_PLANE_BLOCKS} at
+	 * Infinite. Read every frame (the Voxy projection is rebuilt per frame), so slider changes apply immediately.
+	 */
+	public static float farRenderPlaneBlocks() {
+		double desired = (double) ISeeYourChunksConfigManager.getConfig().visibilityDistanceBlocks() + FAR_PLANE_MARGIN_BLOCKS;
+		return (float) Math.max(MIN_FAR_RENDER_PLANE_BLOCKS, Math.min(MAX_FAR_RENDER_PLANE_BLOCKS, desired));
+	}
 
 	private static ClientLevel indexedLevel;
 	private static long indexedTick = Long.MIN_VALUE;
@@ -120,7 +139,7 @@ public final class ClientEntityVisibility {
 		}
 
 		double needed = Math.sqrt(maxDistanceSq) + FAR_PLANE_MARGIN_BLOCKS;
-		return (float) Math.min(needed, FAR_PLANE_CEILING_BLOCKS);
+		return (float) Math.min(needed, farRenderPlaneBlocks());
 	}
 
 	/**

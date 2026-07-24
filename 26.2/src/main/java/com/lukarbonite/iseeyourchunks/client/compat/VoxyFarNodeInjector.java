@@ -21,7 +21,8 @@ import net.fabricmc.loader.api.FabricLoader;
  *       exact, lock-guarded entry point the ring itself feeds - injects a 512-block column as a render root.
  *   <li>{@code VoxyConfig.sectionRenderDistance} widens only the traverser's <em>cull uniform</em> (a scalar
  *       distance threshold, decoupled from the ring) so those far roots are not GPU-culled. Voxy's own
- *       projection far plane is already a fixed 48000, so nothing else clips them.
+ *       projection far plane (raised from its hardcoded 48000 by {@code VoxyRenderSystemMixin}) is the only
+ *       other thing that would clip them.
  * </ol>
  * Occlusion stays exactly as accurate as normal Voxy - it is the same traverser, just given more roots.
  *

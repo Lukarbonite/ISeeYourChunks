@@ -5,7 +5,7 @@
 	"option.i_see_your_chunks.remote_players": "Render distant players",
 	"option.i_see_your_chunks.remote_entities": "Render distant entities",
 	"option.i_see_your_chunks.visibility_distance": "Visibility distance: %s",
-	"option.i_see_your_chunks.visibility_distance.infinite": "Infinite",
+	"option.i_see_your_chunks.visibility_distance.infinite": "Maximum (1,024,000 blocks)",
 	"option.i_see_your_chunks.visibility_distance.value": "%s chunks (%s blocks)",
 	"option.i_see_your_chunks.chunk_render": "Terrain around player: %s",
 	"option.i_see_your_chunks.chunk_render.none": "None (players only, no terrain)",

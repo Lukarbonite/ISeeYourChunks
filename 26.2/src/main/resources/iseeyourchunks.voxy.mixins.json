@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.lukarbonite.iseeyourchunks.client.mixin.voxy",
+	"compatibilityLevel": "JAVA_25",
+	"plugin": "com.lukarbonite.iseeyourchunks.client.mixin.voxy.VoxyMixinConfigPlugin",
+	"client": [
+		"VoxyRenderSystemMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
