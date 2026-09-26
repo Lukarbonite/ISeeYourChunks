@@ -1,0 +1,34 @@
+// Shared source container. Not built on its own: each version module compiles common/src via
+// `srcDirs +=` against that version's own Minecraft + mappings. Loom is applied here ONLY so the
+// IDE has a Minecraft classpath for code insight in common/src, pinned to 26.2 (unobfuscated, so
+// symbol names match runtime and also match 1.21.1's Mojang mappings). No compile output is produced.
+plugins {
+    id 'java-library'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+    archivesName = "${archives_base_name}-common"
+}
+
+compileJava.enabled = false
+jar.enabled = false
+tasks.matching { it.name == 'remapJar' }.configureEach { enabled = false }
+
+loom {
+    noIntermediateMappings()
+}
+
+repositories {
+    mavenLocal()
+    maven { name = "Terraformers"; url = "https://maven.terraformersmc.com/" }
+}
+
+// IDE-insight only (unobfuscated 26.2). Real compilation happens in the version modules.
+dependencies {
+    minecraft "com.mojang:minecraft:26.2"
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:0.155.2+26.2"
+    compileOnly "com.terraformersmc:modmenu:20.0.1"
+    compileOnly(files("${rootProject.projectDir}/libs/26.2/voxy-0.2.19-beta.jar"))
+}

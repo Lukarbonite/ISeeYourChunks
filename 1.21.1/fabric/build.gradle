@@ -1,6 +1,6 @@
-// MC 26.2 — Fabric, unobfuscated (no remapping), Java 25
+// MC 1.21.1 — Fabric, Mojang mappings (obfuscated runtime), Java 21
 plugins {
-    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
     id 'maven-publish'
 }
 
@@ -16,7 +16,6 @@ repositories {
 }
 
 loom {
-    noIntermediateMappings()
     mixin {
         defaultRefmapName = "iseeyourchunks.refmap.json"
     }
@@ -43,28 +42,30 @@ sourceSets {
 }
 
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
     withSourcesJar()
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release  = 25
+    options.release  = 21
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
 
-    // MC 26.2 is unobfuscated — use implementation, not modImplementation
-    implementation "net.fabricmc:fabric-loader:${loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    // MC 1.21.1 is obfuscated — use modImplementation, so loom remaps against Mojang mappings.
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
 
-    compileOnly "com.terraformersmc:modmenu:${modmenu_version}"
+    modCompileOnly "com.terraformersmc:modmenu:${modmenu_version}"
 
-    // Voxy draws the streamed far terrain and is called directly (see VoxyCompat) rather than
-    // reflected into. The bundled jar is already Mojang-mapped, so no remapping is needed, and Voxy
-    // is never on the runtime classpath unless the user installs it.
-    compileOnly(files("${rootProject.projectDir}/libs/${minecraft_version}/voxy-0.2.19-beta.jar"))
+    // Voxy draws the streamed far terrain and is called directly (see the client/compat classes) rather
+    // than reflected into. This fork's jar is intermediary-mapped, so it MUST go through modCompileOnly
+    // (not compileOnly): loom remaps its Minecraft references to Mojang names so they line up with ours.
+    // Voxy is never on the runtime classpath unless the user installs it.
+    modCompileOnly(files("${rootProject.projectDir}/libs/${minecraft_version}/voxy-0.2.19-beta+mc1.21.1-22f9ff6e4c7d254c669438b6a7d32522e8beaea1.jar"))
 }
 
 processResources {

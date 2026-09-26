@@ -84,6 +84,15 @@ Settings live in `config/i-see-your-chunks.json` and can be edited in-game throu
 
 Changing the config re-sends the handshake immediately, so streaming adjusts without a reconnect.
 
+### 🌫️ Fog
+
+Distant players and mobs are fogged exactly like the terrain they stand on, so a far player blends into the haze with the ground under them instead of standing out against it. The mod never changes Voxy's fog itself; how far you can see is decided by Voxy's fog settings.
+
+- **Minecraft 26.2 (Voxy 0.2.19):** Voxy caps its terrain fog past a fixed distance, so far terrain keeps a partial haze and distant players stay visible at any range.
+- **Minecraft 1.21.1 (Voxy fork):** the fork fades its terrain fully to fog colour at `section_render_distance × 512` blocks (8,192 with the default of 16). Past that, terrain and players alike are pure fog colour. To see farther, lower **Fog Intensity** or turn off **Environmental Fog** in Voxy's settings. Both apply to terrain and players together.
+- **Iris shader packs** control fog themselves, so the pack's fog applies instead.
+- On 1.21.1, a **glowing** player is drawn without fog so its outline still renders.
+
 ---
 
 ## ✅ Compatibility
@@ -105,6 +114,7 @@ The mod injects at these points:
 - `ChunkHolder.broadcast()` — marks a streamed far chunk dirty when it changes, so the streamer re-sends the whole chunk on its next interval (only chunks it is actively streaming are ever tracked; a full re-send is used because the client can't apply incremental deltas to an out-of-range chunk it never cached)
 - `ClientChunkCache.<init>` **and** `updateViewRadius()` — widens the client storage radius so streamed chunks aren't rejected as out-of-range (both are required: the radius normally arrives in the login packet, before `updateViewRadius` would ever fire)
 - `ClientChunkCache.replaceWithPacketData()` — converts each arriving far chunk into Voxy's LOD store directly, supplying our own light. Voxy's normal ingest reads the *client* light engine, which never lights a chunk past render distance (so it would silently write nothing); instead it is run through Voxy's own conversion pipeline with the real light captured from the chunk packet. Chunks past the client's storage radius (a viewed player thousands of blocks away) are rejected by vanilla before decoding; those are re-decoded from the intact packet buffer into a throwaway chunk and ingested directly, so far terrain renders at any distance without being held in the cache
+- `ClientChunkCache.replaceWithPacketData()` / `drop()` (entity ticking): marks streamed chunks past the storage radius as ticking for entities, and unmarks them when the server forgets them. The client only ticks entities in chunks it has stored, and position updates only take effect on an entity's own tick, so mobs (and mounts) around a distant player would otherwise freeze in place
 - `ClientPacketListener.handleLevelChunkWithLight()` — captures the chunk packet's real block + sky light so the ingest above can feed it to Voxy (vanilla otherwise discards that light for out-of-range chunks)
 - `LevelRenderer.isSectionCompiledAndVisible()` — lets an entity render in a section Sodium never compiled, because Voxy is drawing that ground instead
 - `EntityRenderDispatcher.shouldRender()` / `Entity.shouldRenderAtSqrDistance()` — distance-limit overrides that still respect the frustum
