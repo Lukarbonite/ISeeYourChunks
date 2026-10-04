@@ -1,0 +1,30 @@
+{
+	"required": true,
+	"package": "com.lukarbonite.iseeyourchunks.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"CameraMixin",
+		"ClientChunkCacheEntityTickingMixin",
+		"ClientChunkCacheMixin",
+		"ClientLevelAccessor",
+		"ClientPacketListenerMixin",
+		"EntityMixin",
+		"FarEntityFogPassMixin",
+		"FarEntityRenderMixin",
+		"FogRendererMixin",
+		"GameRendererMixin",
+		"EntityRenderManagerMixin",
+		"EntityRendererAccessor",
+		"LevelRendererMixin",
+		"GlCommandEncoderMixin",
+		"GlConstMixin",
+		"GlStateManagerMixin",
+		"ProjectionMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

@@ -16,6 +16,10 @@ include ':common'   // Business logic, config, network, shared mixins, platform 
 include ':mc1_21_1-fabric'
 project(':mc1_21_1-fabric').projectDir = file('1.21.1/fabric')
 
+// ─── MC 26.1.2: Fabric, unobfuscated (no mappings needed), Java 25 ──────────
+include ':mc26_1_2-fabric'
+project(':mc26_1_2-fabric').projectDir = file('26.1.2/fabric')
+
 // ─── MC 26.2 — Fabric, unobfuscated (no mappings needed), Java 25 ────────────
 include ':mc26_2-fabric'
 project(':mc26_2-fabric').projectDir = file('26.2/fabric')

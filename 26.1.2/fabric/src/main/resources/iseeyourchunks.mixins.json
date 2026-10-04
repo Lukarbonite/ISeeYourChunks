@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "com.lukarbonite.iseeyourchunks.mixin.server",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ChunkHolderMixin",
+		"ChunkMapMixin",
+		"ChunkMapTrackedEntityAccessor",
+		"ChunkMapTrackedEntityMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

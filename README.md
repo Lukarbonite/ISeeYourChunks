@@ -1,7 +1,7 @@
 # I See Your Chunks
 
 ![Fabric](https://img.shields.io/badge/modloaders-fabric-blue?style=for-the-badge)
-![Minecraft](https://img.shields.io/badge/minecraft-26.2-green?style=for-the-badge)
+![Minecraft](https://img.shields.io/badge/minecraft-1.21.1,26.1--2-green?style=for-the-badge)
 ![Clients need Voxy](https://img.shields.io/badge/clients_need-voxy-red?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-AGPL%203.0-lightgrey?style=for-the-badge)
 
@@ -88,7 +88,7 @@ Changing the config re-sends the handshake immediately, so streaming adjusts wit
 
 Distant players and mobs are fogged exactly like the terrain they stand on, so a far player blends into the haze with the ground under them instead of standing out against it. The mod never changes Voxy's fog itself; how far you can see is decided by Voxy's fog settings.
 
-- **Minecraft 26.2 (Voxy 0.2.19):** Voxy caps its terrain fog past a fixed distance, so far terrain keeps a partial haze and distant players stay visible at any range.
+- **Minecraft 26.2 (Voxy 0.2.19) and 26.1.2 (Voxy 0.2.18):** Voxy caps its terrain fog past a fixed distance, so far terrain keeps a partial haze and distant players stay visible at any range.
 - **Minecraft 1.21.1 (Voxy fork):** the fork fades its terrain fully to fog colour at `section_render_distance × 512` blocks (8,192 with the default of 16). Past that, terrain and players alike are pure fog colour. To see farther, lower **Fog Intensity** or turn off **Environmental Fog** in Voxy's settings. Both apply to terrain and players together.
 - **Iris shader packs** control fog themselves, so the pack's fog applies instead.
 - On 1.21.1, a **glowing** player is drawn without fog so its outline still renders.
@@ -129,17 +129,19 @@ The client↔server handshake (`ClientHelloPayload` in, `ServerAckPayload` back)
 ## 🗂️ Project Layout
 
 ```
-26.2/src/       version-common code (config, networking, streaming, mixins, client logic)
-26.2/fabric/    Fabric entry points and loader-specific compat
+common/          version-agnostic code shared by every MC version (config, networking, streaming, shared mixins, client logic)
+26.2/fabric/     MC 26.2 module: version-specific render mixins, GUI, platform helpers
+26.1.2/fabric/   MC 26.1.2 module
+1.21.1/fabric/   MC 1.21.1 module (Mojang mappings)
 ```
 
 ## 🔨 Building
 
 ```
-./gradlew :mc26_2-fabric:build
+./gradlew :mc26_2-fabric:build :mc26_1_2-fabric:build :mc1_21_1-fabric:build
 ```
 
-The JAR is written to `26.2/fabric/build/libs/`.
+Each JAR is written to `<version>/fabric/build/libs/`.
 
 ---
 
