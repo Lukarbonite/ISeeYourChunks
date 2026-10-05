@@ -3,12 +3,14 @@ package com.lukarbonite.iseeyourchunks.platform;
 import com.lukarbonite.iseeyourchunks.network.ClientHelloPayload;
 import com.lukarbonite.iseeyourchunks.network.ServerAckPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.function.Consumer;
 
-/** MC 1.21.1 (Mojang-mapped) implementation of {@link ClientVersionHelper}. Client only. */
+/** MC 1.20.1 (Mojang-mapped) implementation of {@link ClientVersionHelper}. Client only. */
 public final class ClientVersionHelperImpl implements ClientVersionHelper {
 
 	@Override
@@ -22,17 +24,22 @@ public final class ClientVersionHelperImpl implements ClientVersionHelper {
 
 	@Override
 	public boolean canSendHello() {
-		return ClientPlayNetworking.canSend(VersionHelperImpl.HelloPacket.TYPE);
+		return ClientPlayNetworking.canSend(VersionHelperImpl.HELLO_CHANNEL);
 	}
 
 	@Override
 	public void sendHello(ClientHelloPayload hello) {
-		ClientPlayNetworking.send(new VersionHelperImpl.HelloPacket(hello));
+		FriendlyByteBuf buf = PacketByteBufs.create();
+		hello.write(buf);
+		ClientPlayNetworking.send(VersionHelperImpl.HELLO_CHANNEL, buf);
 	}
 
+	/** The buffer is only valid on the network thread, so it is decoded there and handled on the client thread. */
 	@Override
 	public void registerAckReceiver(Consumer<ServerAckPayload> handler) {
-		ClientPlayNetworking.registerGlobalReceiver(VersionHelperImpl.AckPacket.TYPE,
-			(packet, context) -> handler.accept(packet.payload()));
+		ClientPlayNetworking.registerGlobalReceiver(VersionHelperImpl.ACK_CHANNEL, (client, listener, buf, responseSender) -> {
+			ServerAckPayload ack = ServerAckPayload.read(buf);
+			client.execute(() -> handler.accept(ack));
+		});
 	}
 }

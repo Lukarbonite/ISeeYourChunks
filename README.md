@@ -1,7 +1,7 @@
 # I See Your Chunks
 
 ![Fabric](https://img.shields.io/badge/modloaders-fabric-blue?style=for-the-badge)
-![Minecraft](https://img.shields.io/badge/minecraft-1.21.1,26.1--2-green?style=for-the-badge)
+![Minecraft](https://img.shields.io/badge/minecraft-1.20.1,1.21.1,26.1--2-green?style=for-the-badge)
 ![Clients need Voxy](https://img.shields.io/badge/clients_need-voxy-red?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-AGPL%203.0-lightgrey?style=for-the-badge)
 
@@ -16,7 +16,7 @@
 ### Core Functionality
 - **🌍 Real Terrain, Not Ghosts:** Distant players are rendered on the actual chunks they occupy, not floating in the void
 - **🚫 Zero Generation Cost:** Only chunks **already loaded** on the server are streamed — nothing new is generated, loaded, or ticked
-- **🔄 Live Block Updates:** When a block changes in a streamed chunk the server re-sends that whole chunk and the client re-ingests it, so distant terrain updates in place — torches, lava, and builds all appear live
+- **🔄 Live Block Updates:** When a block changes in a streamed chunk the server re-sends that whole chunk and the client re-ingests it, so distant terrain updates in place: torches, lava, and builds all appear live. On 1.20.1, whose servers also send every chunk within their own view distance, edits in that ring beyond your render distance are pushed into Voxy the same tick they arrive
 - **♾️ Far Past the Render Sphere:** Terrain renders well beyond Voxy's own render sphere by injecting only the streamed columns as extra render roots — no cost for the empty disc in between. Voxy's projection far plane is pushed out from its hardcoded 48,000, and distant players are held to the same reach, so a viewed player and the ground under them always clip together. That reach tracks the visibility-distance slider live — up to 1,024,000 blocks at the slider's maximum — so raising the slider extends both terrain and players immediately, with no reconnect. The 1,024,000 ceiling is a deliberate "more than enough" cap, not a technical limit (reverse-Z depth means it could go further at no real cost)
 - **💡 Real Lighting:** Far terrain is lit from the chunk packet's actual block + sky light, so torches and lava glow and shadows fall correctly, instead of a flat approximation
 - **🎯 Correct Occlusion:** Because the terrain is genuinely present client-side, a player behind a hill is actually hidden — no partial-occlusion guesswork
@@ -55,10 +55,17 @@ Install the JAR on **both the server and the clients.** The server does the trac
 ### Required (both sides)
 - **Fabric Loader** 0.16.12+
 - **Fabric API**
-- **Java 25**
+- **Java:** 25 on 26.x, 21 on 1.21.1 and 1.20.1 (the mod itself targets Java 17 on 1.20.1, but the Voxy fork it needs is built for Java 21)
 
 ### Required on clients
-- **Voxy** — draws the streamed far terrain (client-only mod; dedicated servers don't need or want it)
+- **Voxy:** draws the streamed far terrain (client-only mod; dedicated servers don't need or want it). Use the build for your Minecraft version:
+
+| Minecraft | Voxy |
+|:----------|:-----|
+| 26.2 | Voxy 0.2.19 |
+| 26.1.2 | Voxy 0.2.18 |
+| 1.21.1 | the [mayjhon69669-sys/voxy-water-fix](https://github.com/mayjhon69669-sys/voxy-water-fix/tree/mc1211) fork (`mc1211` branch, 0.2.19) |
+| 1.20.1 | the [m3t4f1v3/voxy](https://github.com/m3t4f1v3/voxy) fork (0.2.15), with **Sodium 0.5.13** and **Java 21** |
 
 ### Optional
 - **Mod Menu** — in-game access to the config screen
@@ -89,7 +96,7 @@ Changing the config re-sends the handshake immediately, so streaming adjusts wit
 Distant players and mobs are fogged exactly like the terrain they stand on, so a far player blends into the haze with the ground under them instead of standing out against it. The mod never changes Voxy's fog itself; how far you can see is decided by Voxy's fog settings.
 
 - **Minecraft 26.2 (Voxy 0.2.19) and 26.1.2 (Voxy 0.2.18):** Voxy caps its terrain fog past a fixed distance, so far terrain keeps a partial haze and distant players stay visible at any range.
-- **Minecraft 1.21.1 (Voxy fork):** the fork fades its terrain fully to fog colour at `section_render_distance × 512` blocks (8,192 with the default of 16). Past that, terrain and players alike are pure fog colour. To see farther, lower **Fog Intensity** or turn off **Environmental Fog** in Voxy's settings. Both apply to terrain and players together.
+- **Minecraft 1.21.1 and 1.20.1 (Voxy forks):** the forks share the same fog. The fork fades its terrain fully to fog colour at `section_render_distance × 512` blocks (8,192 with the default of 16). Past that, terrain and players alike are pure fog colour. To see farther, lower **Fog Intensity** or turn off **Environmental Fog** in Voxy's settings. Both apply to terrain and players together.
 - **Iris shader packs** control fog themselves, so the pack's fog applies instead.
 - On 1.21.1, a **glowing** player is drawn without fog so its outline still renders.
 
@@ -116,7 +123,8 @@ The mod injects at these points:
 - `ClientChunkCache.replaceWithPacketData()` — converts each arriving far chunk into Voxy's LOD store directly, supplying our own light. Voxy's normal ingest reads the *client* light engine, which never lights a chunk past render distance (so it would silently write nothing); instead it is run through Voxy's own conversion pipeline with the real light captured from the chunk packet. Chunks past the client's storage radius (a viewed player thousands of blocks away) are rejected by vanilla before decoding; those are re-decoded from the intact packet buffer into a throwaway chunk and ingested directly, so far terrain renders at any distance without being held in the cache
 - `ClientChunkCache.replaceWithPacketData()` / `drop()` (entity ticking): marks streamed chunks past the storage radius as ticking for entities, and unmarks them when the server forgets them. The client only ticks entities in chunks it has stored, and position updates only take effect on an entity's own tick, so mobs (and mounts) around a distant player would otherwise freeze in place
 - `ClientPacketListener.handleLevelChunkWithLight()` — captures the chunk packet's real block + sky light so the ingest above can feed it to Voxy (vanilla otherwise discards that light for out-of-range chunks)
-- `LevelRenderer.isSectionCompiledAndVisible()` — lets an entity render in a section Sodium never compiled, because Voxy is drawing that ground instead
+- `LevelRenderer.isSectionCompiledAndVisible()` (`isSectionCompiled()` on 1.21.1, `isChunkCompiled()` on 1.20.1): lets an entity render in a section Sodium never compiled, because Voxy is drawing that ground instead
+- `ClientLevel.setBlocksDirty()` (1.20.1 only): re-ingests an edited chunk into Voxy at the end of the tick when it is cached but outside Sodium's render distance. A 1.20.1 server sends every chunk within its view distance whatever the client's render distance, and Voxy otherwise only picks up such a chunk's edits when it unloads
 - `EntityRenderDispatcher.shouldRender()` / `Entity.shouldRenderAtSqrDistance()` — distance-limit overrides that still respect the frustum
 - `VoxyRenderSystem.computeProjectionMat()` — raises Voxy's hardcoded 48,000-block projection far plane to the shared far-render bound so injected far columns aren't clipped there (applied only when Voxy is present, gated by a mixin config plugin). The bound is computed live from the visibility-distance slider (48,000 floor, 1,024,000 ceiling) and this method runs every frame, so the reach follows the slider immediately; the managed-entity far plane uses the same bound, keeping terrain and the players on it in lockstep
 
@@ -133,12 +141,13 @@ common/          version-agnostic code shared by every MC version (config, netwo
 26.2/fabric/     MC 26.2 module: version-specific render mixins, GUI, platform helpers
 26.1.2/fabric/   MC 26.1.2 module
 1.21.1/fabric/   MC 1.21.1 module (Mojang mappings)
+1.20.1/fabric/   MC 1.20.1 module (Mojang mappings, Java 17 bytecode)
 ```
 
 ## 🔨 Building
 
 ```
-./gradlew :mc26_2-fabric:build :mc26_1_2-fabric:build :mc1_21_1-fabric:build
+./gradlew clean build
 ```
 
 Each JAR is written to `<version>/fabric/build/libs/`.

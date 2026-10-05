@@ -1,9 +1,6 @@
 package com.lukarbonite.iseeyourchunks.network;
 
-import com.lukarbonite.iseeyourchunks.platform.VersionHelper;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
 
 /**
  * Sent server -> client in reply to a {@link ClientHelloPayload}, telling the client what the server can
@@ -14,24 +11,28 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
  * <p>Purely advisory: the server clamps every request regardless, so a client that never receives this
  * (older server, or the packet lost to a race) simply falls back to its conservative defaults.
  *
+ * <p>A plain record so it compiles on every supported MC version; see {@link ClientHelloPayload} for how each
+ * version carries it.
+ *
  * @param protocolVersion       echoes the protocol so a mismatched client can ignore it
  * @param streamingEnabled      whether the server has far-chunk streaming switched on at all
  * @param renderDistanceChunks  the server's view distance in chunks - the hard ceiling on streamed terrain
  */
-public record ServerAckPayload(int protocolVersion, boolean streamingEnabled, int renderDistanceChunks)
-	implements CustomPacketPayload {
+public record ServerAckPayload(int protocolVersion, boolean streamingEnabled, int renderDistanceChunks) {
 
-	public static final Type<ServerAckPayload> TYPE = VersionHelper.INSTANCE.payloadType("server_ack");
+	/** Channel path under the mod's namespace. */
+	public static final String CHANNEL = "server_ack";
 
-	public static final StreamCodec<io.netty.buffer.ByteBuf, ServerAckPayload> CODEC = StreamCodec.composite(
-		ByteBufCodecs.VAR_INT, ServerAckPayload::protocolVersion,
-		ByteBufCodecs.BOOL, ServerAckPayload::streamingEnabled,
-		ByteBufCodecs.VAR_INT, ServerAckPayload::renderDistanceChunks,
-		ServerAckPayload::new
-	);
+	public void write(FriendlyByteBuf buf) {
+		buf.writeVarInt(this.protocolVersion);
+		buf.writeBoolean(this.streamingEnabled);
+		buf.writeVarInt(this.renderDistanceChunks);
+	}
 
-	@Override
-	public Type<ServerAckPayload> type() {
-		return TYPE;
+	public static ServerAckPayload read(FriendlyByteBuf buf) {
+		int protocolVersion = buf.readVarInt();
+		boolean streamingEnabled = buf.readBoolean();
+		int renderDistanceChunks = buf.readVarInt();
+		return new ServerAckPayload(protocolVersion, streamingEnabled, renderDistanceChunks);
 	}
 }

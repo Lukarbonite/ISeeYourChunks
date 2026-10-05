@@ -7,11 +7,10 @@ import com.lukarbonite.iseeyourchunks.client.compat.VoxyIngestBridge;
 import com.lukarbonite.iseeyourchunks.client.compat.VoxyFarNodeInjector;
 import com.lukarbonite.iseeyourchunks.network.ClientHelloPayload;
 import com.lukarbonite.iseeyourchunks.network.ISeeYourChunksNetworking;
-import com.lukarbonite.iseeyourchunks.network.ServerAckPayload;
+import com.lukarbonite.iseeyourchunks.platform.ClientVersionHelper;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientChunkCache;
 
@@ -57,7 +56,7 @@ public final class ISeeYourChunksFabricClient implements ClientModInitializer {
 			VoxyFarNodeInjector.reset();
 		});
 
-		ClientPlayNetworking.registerGlobalReceiver(ServerAckPayload.TYPE, (payload, context) -> {
+		ClientVersionHelper.INSTANCE.registerAckReceiver(payload -> {
 			serverRenderDistanceChunks = payload.renderDistanceChunks() > 0
 				? payload.renderDistanceChunks()
 				: UNKNOWN_RENDER_DISTANCE;
@@ -107,9 +106,10 @@ public final class ISeeYourChunksFabricClient implements ClientModInitializer {
 	 */
 	public static void reapplyStorageRadius() {
 		Minecraft client = Minecraft.getInstance();
-		if (client.level == null || !(client.level.getChunkSource() instanceof ClientChunkCache cache)) {
+		if (client.level == null) {
 			return;
 		}
+		ClientChunkCache cache = client.level.getChunkSource();
 
 		int baseViewDistance = serverRenderDistanceChunks > 0
 			? serverRenderDistanceChunks
@@ -129,14 +129,14 @@ public final class ISeeYourChunksFabricClient implements ClientModInitializer {
 
 	/** Re-announce preferences whenever the config changes so the server can adjust immediately. */
 	public static void sendHello() {
-		if (!ClientPlayNetworking.canSend(ClientHelloPayload.TYPE)) {
+		if (!ClientVersionHelper.INSTANCE.canSendHello()) {
 			// Server hasn't registered the channel (yet, or at all). Keep retrying from the client tick.
 			return;
 		}
 		ISeeYourChunksConfig config = ISeeYourChunksConfigManager.getConfig();
 		int desiredDistance = resolveDesiredDistanceBlocks(config);
 		int chunkRenderCount = config.chunkRenderCount();
-		ClientPlayNetworking.send(new ClientHelloPayload(
+		ClientVersionHelper.INSTANCE.sendHello(new ClientHelloPayload(
 			ClientHelloPayload.PROTOCOL_VERSION,
 			config.enabled() && config.renderRemotePlayers(),
 			desiredDistance,

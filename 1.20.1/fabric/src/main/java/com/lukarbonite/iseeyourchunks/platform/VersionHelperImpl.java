@@ -4,13 +4,11 @@ import com.lukarbonite.iseeyourchunks.ISeeYourChunks;
 import com.lukarbonite.iseeyourchunks.mixin.server.ChunkMapAccessor;
 import com.lukarbonite.iseeyourchunks.network.ClientHelloPayload;
 import com.lukarbonite.iseeyourchunks.network.ServerAckPayload;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ChunkMap;
@@ -21,8 +19,11 @@ import net.minecraft.world.level.chunk.LevelChunk;
 
 import java.util.function.BiConsumer;
 
-/** MC 1.21.1 (Mojang-mapped) implementation of {@link VersionHelper}. */
+/** MC 1.20.1 (Mojang-mapped) implementation of {@link VersionHelper}. */
 public final class VersionHelperImpl implements VersionHelper {
+	/** The hello/ack channels: the same ids the 1.20.5+ payload types use, so every version of the mod interoperates. */
+	public static final ResourceLocation HELLO_CHANNEL = new ResourceLocation(ISeeYourChunks.MOD_ID, ClientHelloPayload.CHANNEL);
+	public static final ResourceLocation ACK_CHANNEL = new ResourceLocation(ISeeYourChunks.MOD_ID, ServerAckPayload.CHANNEL);
 
 	@Override
 	public long packChunk(int chunkX, int chunkZ) {
@@ -39,9 +40,16 @@ public final class VersionHelperImpl implements VersionHelper {
 		return player.serverLevel();
 	}
 
+	/**
+	 * 1.20.1 has no per-player chunk-tracking view: it sends every player each chunk within the server's view radius
+	 * of the section they were last placed in, ignoring the client's own render distance. This is that exact test,
+	 * as vanilla's {@code move}, {@code updatePlayerStatus} and {@code getPlayers} make it.
+	 */
 	@Override
 	public boolean isChunkTracked(ChunkMap chunkMap, ServerPlayer player, int chunkX, int chunkZ) {
-		return ((ChunkMapAccessor) chunkMap).iSeeYourChunks$invokeIsChunkTracked(player, chunkX, chunkZ);
+		SectionPos section = player.getLastSectionPos();
+		return ChunkMap.isChunkInRange(chunkX, chunkZ, section.x(), section.z(),
+			((ChunkMapAccessor) chunkMap).iSeeYourChunks$viewDistance());
 	}
 
 	@Override
@@ -57,51 +65,29 @@ public final class VersionHelperImpl implements VersionHelper {
 		return me.cortex.voxy.client.core.IGetVoxyRenderSystem.getNullable();
 	}
 
+	/** Raw channels need no type registration. */
 	@Override
 	public void registerPayloadTypes() {
-		PayloadTypeRegistry.playC2S().register(HelloPacket.TYPE, HelloPacket.CODEC);
-		PayloadTypeRegistry.playS2C().register(AckPacket.TYPE, AckPacket.CODEC);
 	}
 
+	/** The buffer is only valid on the network thread, so it is decoded there and handled on the server thread. */
 	@Override
 	public void registerHelloReceiver(BiConsumer<ServerPlayer, ClientHelloPayload> handler) {
-		ServerPlayNetworking.registerGlobalReceiver(HelloPacket.TYPE,
-			(packet, context) -> handler.accept(context.player(), packet.payload()));
+		ServerPlayNetworking.registerGlobalReceiver(HELLO_CHANNEL, (server, player, listener, buf, responseSender) -> {
+			ClientHelloPayload hello = ClientHelloPayload.read(buf);
+			server.execute(() -> handler.accept(player, hello));
+		});
 	}
 
 	@Override
 	public void sendAck(ServerPlayer player, ServerAckPayload ack) {
-		ServerPlayNetworking.send(player, new AckPacket(ack));
+		FriendlyByteBuf buf = PacketByteBufs.create();
+		ack.write(buf);
+		ServerPlayNetworking.send(player, ACK_CHANNEL, buf);
 	}
 
 	@Override
 	public Packet<?> forgetChunkPacket(int chunkX, int chunkZ) {
-		return new ClientboundForgetLevelChunkPacket(new ChunkPos(chunkX, chunkZ));
-	}
-
-	/** The shared {@link ClientHelloPayload} on the payload API, in its own wire format on the mod's channel. */
-	public record HelloPacket(ClientHelloPayload payload) implements CustomPacketPayload {
-		public static final Type<HelloPacket> TYPE =
-			new Type<>(ResourceLocation.fromNamespaceAndPath(ISeeYourChunks.MOD_ID, ClientHelloPayload.CHANNEL));
-		public static final StreamCodec<FriendlyByteBuf, HelloPacket> CODEC = CustomPacketPayload.<FriendlyByteBuf, HelloPacket>codec(
-			(packet, buf) -> packet.payload().write(buf), buf -> new HelloPacket(ClientHelloPayload.read(buf)));
-
-		@Override
-		public Type<HelloPacket> type() {
-			return TYPE;
-		}
-	}
-
-	/** The shared {@link ServerAckPayload} on the payload API, in its own wire format on the mod's channel. */
-	public record AckPacket(ServerAckPayload payload) implements CustomPacketPayload {
-		public static final Type<AckPacket> TYPE =
-			new Type<>(ResourceLocation.fromNamespaceAndPath(ISeeYourChunks.MOD_ID, ServerAckPayload.CHANNEL));
-		public static final StreamCodec<FriendlyByteBuf, AckPacket> CODEC = CustomPacketPayload.<FriendlyByteBuf, AckPacket>codec(
-			(packet, buf) -> packet.payload().write(buf), buf -> new AckPacket(ServerAckPayload.read(buf)));
-
-		@Override
-		public Type<AckPacket> type() {
-			return TYPE;
-		}
+		return new ClientboundForgetLevelChunkPacket(chunkX, chunkZ);
 	}
 }

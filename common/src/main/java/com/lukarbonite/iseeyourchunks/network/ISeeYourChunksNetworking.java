@@ -2,7 +2,6 @@ package com.lukarbonite.iseeyourchunks.network;
 
 import com.lukarbonite.iseeyourchunks.platform.VersionHelper;
 import com.lukarbonite.iseeyourchunks.server.FarChunkStreamer;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 /**
  * Registers the mod's custom payloads and the server-side receiver. Kept separate from client entry
@@ -26,7 +25,6 @@ public final class ISeeYourChunksNetworking {
 	/** Server-side wiring: payload types plus the hello receiver. */
 	public static void registerCommon() {
 		registerPayloads();
-		ServerPlayNetworking.registerGlobalReceiver(ClientHelloPayload.TYPE,
-			(payload, context) -> FarChunkStreamer.handleHello(context.player(), payload));
+		VersionHelper.INSTANCE.registerHelloReceiver(FarChunkStreamer::handleHello);
 	}
 }

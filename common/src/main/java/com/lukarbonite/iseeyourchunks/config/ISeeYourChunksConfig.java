@@ -1,6 +1,7 @@
 package com.lukarbonite.iseeyourchunks.config;
 
 import com.lukarbonite.iseeyourchunks.EntityVisibilityRules;
+import net.minecraft.util.Mth;
 
 /**
  * Mutable settings holder, serialised to JSON as-is by {@link ISeeYourChunksConfigManager}.
@@ -128,11 +129,11 @@ public final class ISeeYourChunksConfig {
 	}
 
 	public static int clampUpdateIntervalTicks(int ticks) {
-		return Math.clamp(ticks, MIN_UPDATE_INTERVAL_TICKS, MAX_UPDATE_INTERVAL_TICKS);
+		return Mth.clamp(ticks, MIN_UPDATE_INTERVAL_TICKS, MAX_UPDATE_INTERVAL_TICKS);
 	}
 
 	public static int clampChunkRenderCount(int count) {
-		return Math.clamp(count, MIN_CHUNK_RENDER_COUNT, MAX_CHUNK_RENDER_COUNT);
+		return Mth.clamp(count, MIN_CHUNK_RENDER_COUNT, MAX_CHUNK_RENDER_COUNT);
 	}
 
 	/**

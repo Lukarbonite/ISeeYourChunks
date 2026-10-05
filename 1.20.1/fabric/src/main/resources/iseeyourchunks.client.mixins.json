@@ -1,0 +1,25 @@
+{
+	"required": true,
+	"package": "com.lukarbonite.iseeyourchunks.client.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"client": [
+		"ClientChunkCacheEntityTickingLegacyMixin",
+		"ClientChunkCacheMixin",
+		"ClientLevelAccessor",
+		"ClientLevelEditMixin",
+		"ClientPacketListenerMixin",
+		"EntityMixin",
+		"EntityRenderManagerMixin",
+		"FarEntityFogMixin",
+		"GameRendererMixin",
+		"GlStateManagerMixin",
+		"LevelRendererMixin",
+		"RenderTargetMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

@@ -1,6 +1,8 @@
 package com.lukarbonite.iseeyourchunks.platform;
 
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import com.lukarbonite.iseeyourchunks.network.ClientHelloPayload;
+import com.lukarbonite.iseeyourchunks.network.ServerAckPayload;
+import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -8,11 +10,12 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 
 import java.util.ServiceLoader;
+import java.util.function.BiConsumer;
 
 /**
  * SPI abstraction for the handful of Minecraft APIs that differ between the supported MC versions
- * (26.2 unobfuscated vs 1.21.1 Mojang-mapped). Every method here corresponds to one verified
- * 26.2-vs-1.21.1 delta; the shared code in {@code common} calls {@link #INSTANCE} instead of the
+ * (26.x unobfuscated vs 1.21.1 and 1.20.1 Mojang-mapped). Every method here corresponds to one verified
+ * delta between them; the shared code in {@code common} calls {@link #INSTANCE} instead of the
  * version-specific API, and each version module ships exactly one {@code VersionHelperImpl}
  * registered via {@code META-INF/services/com.lukarbonite.iseeyourchunks.platform.VersionHelper}.
  *
@@ -50,9 +53,18 @@ public interface VersionHelper {
 	 */
 	Object voxyRenderSystemNullable();
 
-	/** Builds a namespaced payload type ({@code Identifier}/{@code ResourceLocation}). */
-	<T extends CustomPacketPayload> CustomPacketPayload.Type<T> payloadType(String path);
-
-	/** Registers the mod's serverbound + clientbound payload types with the loader's registry. */
+	/**
+	 * Registers the mod's serverbound + clientbound packet types with the loader where the version needs it (the
+	 * payload API on 1.20.5+; nothing on 1.20.1's raw channels). Safe to call on both sides.
+	 */
 	void registerPayloadTypes();
+
+	/** Server side: delivers every received {@link ClientHelloPayload} to {@code handler} on the server thread. */
+	void registerHelloReceiver(BiConsumer<ServerPlayer, ClientHelloPayload> handler);
+
+	/** Server side: sends {@code ack} to {@code player}. */
+	void sendAck(ServerPlayer player, ServerAckPayload ack);
+
+	/** A packet telling the client to drop a chunk ({@code ClientboundForgetLevelChunkPacket}; its constructor differs). */
+	Packet<?> forgetChunkPacket(int chunkX, int chunkZ);
 }

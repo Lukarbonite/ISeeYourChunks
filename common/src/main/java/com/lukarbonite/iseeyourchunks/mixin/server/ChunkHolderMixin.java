@@ -4,7 +4,6 @@ import com.lukarbonite.iseeyourchunks.platform.VersionHelper;
 import com.lukarbonite.iseeyourchunks.server.FarChunkStreamer;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.level.ChunkHolder;
-import net.minecraft.server.level.GenerationChunkHolder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
@@ -35,7 +34,7 @@ abstract class ChunkHolderMixin {
 	@Inject(method = "broadcast(Ljava/util/List;Lnet/minecraft/network/protocol/Packet;)V", at = @At("HEAD"))
 	private void iSeeYourChunks$markFarChunkChanged(List<ServerPlayer> players, Packet<?> packet, CallbackInfo ci) {
 		if (this.levelHeightAccessor instanceof ServerLevel level) {
-			ChunkPos pos = ((GenerationChunkHolder) (Object) this).getPos();
+			ChunkPos pos = ((ChunkHolder) (Object) this).getPos();
 			FarChunkStreamer.markStreamedChunkChanged(level, VersionHelper.INSTANCE.packChunkPos(pos));
 		}
 	}

@@ -6,7 +6,6 @@ import com.lukarbonite.iseeyourchunks.config.ISeeYourChunksConfigManager;
 import com.lukarbonite.iseeyourchunks.platform.VersionHelper;
 import com.lukarbonite.iseeyourchunks.network.ClientHelloPayload;
 import com.lukarbonite.iseeyourchunks.network.ServerAckPayload;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
@@ -14,7 +13,6 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerChunkCache;
@@ -109,7 +107,7 @@ public final class FarChunkStreamer {
 		int renderDistanceChunks = VersionHelper.INSTANCE.serverLevel(player).getServer() != null
 			? VersionHelper.INSTANCE.serverLevel(player).getServer().getPlayerList().getViewDistance()
 			: 0;
-		ServerPlayNetworking.send(player,
+		VersionHelper.INSTANCE.sendAck(player,
 			new ServerAckPayload(ClientHelloPayload.PROTOCOL_VERSION, streamingEnabled, renderDistanceChunks));
 	}
 
@@ -264,7 +262,7 @@ public final class FarChunkStreamer {
 			int chunkZ = ChunkPos.getZ(packed);
 			// Leave chunks vanilla now owns (viewer moved close) for vanilla to manage.
 			if (!isWithinViewDistance(viewer, chunkX, chunkZ, viewDistanceChunks)) {
-				viewer.connection.send(new ClientboundForgetLevelChunkPacket(new ChunkPos(chunkX, chunkZ)));
+				viewer.connection.send(VersionHelper.INSTANCE.forgetChunkPacket(chunkX, chunkZ));
 			}
 			removeChunkViewer(packed, viewer);
 			currentIterator.remove();
@@ -427,7 +425,7 @@ public final class FarChunkStreamer {
 		while (iterator.hasNext()) {
 			long packed = iterator.nextLong();
 			removeChunkViewer(packed, viewer);
-			viewer.connection.send(new ClientboundForgetLevelChunkPacket(new ChunkPos(ChunkPos.getX(packed), ChunkPos.getZ(packed))));
+			viewer.connection.send(VersionHelper.INSTANCE.forgetChunkPacket(ChunkPos.getX(packed), ChunkPos.getZ(packed)));
 		}
 	}
 

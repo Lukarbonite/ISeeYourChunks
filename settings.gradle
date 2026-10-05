@@ -12,6 +12,10 @@ rootProject.name = 'iseeyourchunks'
 // ─── Shared source container (no build output, Java source only) ─────────────
 include ':common'   // Business logic, config, network, shared mixins, platform SPI
 
+// ─── MC 1.20.1: Fabric, Mojang mappings (obfuscated runtime), Java 17 ────────
+include ':mc1_20_1-fabric'
+project(':mc1_20_1-fabric').projectDir = file('1.20.1/fabric')
+
 // ─── MC 1.21.1 — Fabric, Mojang mappings (obfuscated runtime), Java 21 ───────
 include ':mc1_21_1-fabric'
 project(':mc1_21_1-fabric').projectDir = file('1.21.1/fabric')

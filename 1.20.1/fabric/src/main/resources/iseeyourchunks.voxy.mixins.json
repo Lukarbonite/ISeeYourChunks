@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "com.lukarbonite.iseeyourchunks.client.mixin.voxy",
+	"compatibilityLevel": "JAVA_17",
+	"plugin": "com.lukarbonite.iseeyourchunks.client.mixin.voxy.VoxyMixinConfigPlugin",
+	"client": [
+		"VoxyCullDistanceMixin",
+		"VoxyDepthPrecisionMixin",
+		"VoxyFadeDistanceMixin",
+		"VoxyHiZPrecisionMixin",
+		"VoxyRenderSystemMixin",
+		"VoxyReverseZMixin",
+		"VoxyTextureFormatMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

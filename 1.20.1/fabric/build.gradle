@@ -1,0 +1,106 @@
+// MC 1.20.1: Fabric, Mojang mappings (obfuscated runtime), Java 17 bytecode (compiled with a Java 21 toolchain)
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+    id 'maven-publish'
+}
+
+version = "${mod_version}+${minecraft_version}"
+
+base {
+    archivesName = "${archives_base_name}-fabric"
+}
+
+repositories {
+    mavenLocal()
+    maven { name = "Terraformers"; url = "https://maven.terraformersmc.com/" }
+}
+
+loom {
+    mixin {
+        defaultRefmapName = "iseeyourchunks.refmap.json"
+    }
+    // Separate run directories so runClient and runServer can run at once without locking each other's files.
+    runs {
+        client { runDir "run/client" }
+        server { runDir "run/server" }
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs += [
+                project(':common').file('src/main/java')
+            ]
+        }
+        resources {
+            srcDirs += [
+                project(':common').file('src/main/resources')
+            ]
+        }
+    }
+}
+
+// The dev client must run on Java 21: the 1.20.1 Voxy fork is compiled for Java 21 (its mixins also lift
+// Minecraft's Level class to Java 21 bytecode). On a Java 19+ runtime Loom forces MC's LWJGL 3.3.1 up to a
+// 3.3.2 snapshot, which Sodium 0.5.13 refuses to start with, so pin LWJGL back to what MC 1.20.1 ships with,
+// exactly as a launcher running 1.20.1 on Java 21 does.
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == 'org.lwjgl') {
+            useVersion '3.3.1'
+            because 'Sodium 0.5.13 requires the LWJGL that Minecraft 1.20.1 ships with'
+        }
+    }
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release  = 17
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    // MC 1.20.1 is obfuscated: use modImplementation, so loom remaps against Mojang mappings.
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+
+    modCompileOnly "com.terraformersmc:modmenu:${modmenu_version}"
+
+    // Voxy draws the streamed far terrain and is called directly (see the client/compat classes) rather
+    // than reflected into. Voxy has no official 1.20.1 build; this is the m3t4f1v3/voxy fork (0.2.15-beta).
+    // Its jar is intermediary-mapped, so it MUST go through modCompileOnly (not compileOnly): loom remaps
+    // its Minecraft references to Mojang names so they line up with ours. Voxy is never on the runtime
+    // classpath unless the user installs it.
+    modCompileOnly(files("${rootProject.projectDir}/libs/${minecraft_version}/voxy-0.2.15-beta+1.20.1-fabric.jar"))
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand version: inputs.properties.version
+    }
+}
+
+jar {
+    from(rootProject.file("LICENSE")) {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = "${archives_base_name}-fabric"
+            from components.java
+        }
+    }
+}
